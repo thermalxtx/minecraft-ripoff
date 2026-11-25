@@ -21,6 +21,7 @@ struct Camera {
 
 // Lighting / fog / sky parameters for a frame
 struct FrameEnv {
+    float brightness = 0.5f;
     vec3 fogColor = {0.6f, 0.75f, 1.0f};
     float fogStart = 100, fogEnd = 160;
     float daylight = 1.0f;
@@ -88,4 +89,7 @@ private:
 };
 
 extern GLuint g_quadEBO;
+extern float g_brightness;
+// Same brightness lift the chunk shader applies, for CPU-lit entities and particles
+inline float liftLight(float l) { return lerpf(l, std::sqrt(std::max(0.0f, l)), g_brightness * 0.6f); }
 bool writePNG(const std::string& path, int w, int h, const uint8_t* rgba);

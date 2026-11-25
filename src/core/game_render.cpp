@@ -30,6 +30,8 @@ FrameEnv Game::makeEnv() const {
     float rd = settings.renderDistance * 16.0f;
     env.fogStart = rd * 0.55f; env.fogEnd = rd * 0.95f;
     env.time = (float)plat::timeSeconds();
+    env.brightness = settings.brightness;
+    g_brightness = settings.brightness;
     // caves get a darker fog so the far tunnels fade into black instead of sky colour
     if (inWorld) {
         int sl = world->getSkyLight(ifloor(cam.pos.x), ifloor(cam.pos.y), ifloor(cam.pos.z));
@@ -143,7 +145,7 @@ void Game::renderHand(const FrameEnv& env) {
     vec3 eye = player.eyePos(alpha);
     int sx = ifloor(eye.x), sy = ifloor(eye.y), sz = ifloor(eye.z);
     float light = std::max(std::pow(0.8f, 15.0f - world->getSkyLight(sx, sy, sz)) * env.daylight, std::pow(0.8f, 15.0f - world->getBlockLight(sx, sy, sz)));
-    light = std::max(light, 0.08f);
+    light = std::max(liftLight(light), 0.08f);
     float sw = lerpf(player.prevSwing, player.swing, alpha);
     if (player.swing == 0 && player.prevSwing > 0) sw = 0;
     float swingS = std::sin(sw * PI), swingSq = std::sin(std::sqrt(sw) * PI);

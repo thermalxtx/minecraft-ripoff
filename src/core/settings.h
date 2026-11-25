@@ -6,6 +6,7 @@ struct Settings {
     int renderDistance = 10;     // chunks (4..16)
     float fov = 70;              // degrees
     float sensitivity = 1.0f;    // mouse look multiplier
+    float brightness = 0.5f;     // 0 moody .. 1 bright
     float masterVolume = 0.8f;
     float musicVolume = 0.5f;
     float sfxVolume = 1.0f;

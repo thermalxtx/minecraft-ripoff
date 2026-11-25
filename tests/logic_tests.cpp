@@ -150,6 +150,7 @@ int main() {
         ItemStack bad[9]; bad[0] = ItemStack(DIRT, 1);
         CHECK(matchRecipe(bad, 3).empty(), "dirt makes nothing");
         CHECK(allRecipes().size() >= 40, "recipe count %d", (int)allRecipes().size());
+        printf("recipes: %d, blocks: %d, items: %d\n", (int)allRecipes().size(), (int)BLOCK_COUNT - 1, (int)(ITEM_END - ITEM_FIRST));
         ItemStack tor[9]; tor[1] = ItemStack(COAL, 1); tor[4] = ItemStack(STICK, 1);
         CHECK(matchRecipe(tor, 3).id == TORCH && matchRecipe(tor, 3).count == 4, "torches");
     }

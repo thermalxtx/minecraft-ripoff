@@ -16,6 +16,7 @@ void Settings::load(const std::string& path) {
         if (!strcmp(k, "renderDistance")) renderDistance = (int)v;
         else if (!strcmp(k, "fov")) fov = v;
         else if (!strcmp(k, "sensitivity")) sensitivity = v;
+        else if (!strcmp(k, "brightness")) brightness = v;
         else if (!strcmp(k, "masterVolume")) masterVolume = v;
         else if (!strcmp(k, "musicVolume")) musicVolume = v;
         else if (!strcmp(k, "sfxVolume")) sfxVolume = v;
@@ -26,7 +27,7 @@ void Settings::load(const std::string& path) {
     }
     fclose(f);
     renderDistance = std::max(4, std::min(16, renderDistance));
-    fov = clampf(fov, 50, 110); sensitivity = clampf(sensitivity, 0.1f, 4);
+    fov = clampf(fov, 50, 110); sensitivity = clampf(sensitivity, 0.1f, 4); brightness = clampf(brightness, 0, 1);
     masterVolume = clampf(masterVolume, 0, 1); musicVolume = clampf(musicVolume, 0, 1); sfxVolume = clampf(sfxVolume, 0, 1);
     guiScale = std::max(0, std::min(4, guiScale));
 }
@@ -34,8 +35,8 @@ void Settings::load(const std::string& path) {
 void Settings::save(const std::string& path) const {
     FILE* f = fopen(path.c_str(), "w");
     if (!f) return;
-    fprintf(f, "renderDistance=%d\nfov=%.1f\nsensitivity=%.3f\nmasterVolume=%.3f\nmusicVolume=%.3f\nsfxVolume=%.3f\n",
-            renderDistance, fov, sensitivity, masterVolume, musicVolume, sfxVolume);
+    fprintf(f, "renderDistance=%d\nfov=%.1f\nsensitivity=%.3f\nbrightness=%.3f\nmasterVolume=%.3f\nmusicVolume=%.3f\nsfxVolume=%.3f\n",
+            renderDistance, fov, sensitivity, brightness, masterVolume, musicVolume, sfxVolume);
     fprintf(f, "viewBobbing=%d\nfullscreen=%d\nvsync=%d\nguiScale=%d\n", viewBobbing ? 1 : 0, fullscreen ? 1 : 0, vsync ? 1 : 0, guiScale);
     fclose(f);
 }

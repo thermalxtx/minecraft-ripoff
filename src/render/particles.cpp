@@ -114,7 +114,7 @@ void ParticleSystem::render(GeoBatch& b, const Camera& cam, const World& w, floa
             vec3 wp = pos + cam.pos;
             int x = ifloor(wp.x), y = ifloor(wp.y), z = ifloor(wp.z);
             light = std::max(std::pow(0.8f, 15.0f - w.getSkyLight(x, y, z)) * daylight, std::pow(0.8f, 15.0f - w.getBlockLight(x, y, z)));
-            light = std::max(light, 0.06f);
+            light = std::max(liftLight(light), 0.06f);
         }
         float t = 1 - p.life / p.maxLife;
         float alpha = p.fade ? (1 - t) * p.a : p.a;

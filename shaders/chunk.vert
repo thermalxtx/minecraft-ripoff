@@ -7,6 +7,7 @@ uniform vec3 uCamPos;      // camera world position (for animation phase)
 uniform float uTime;
 uniform float uDaylight;   // 0.2 (night) .. 1.0 (day)
 uniform vec3 uSkyTint;
+uniform float uBright;     // 0 = moody, 1 = bright (gamma lift)
 out vec3 vUV;
 out vec3 vLight;
 out float vFogDist;
@@ -34,6 +35,7 @@ void main() {
     float bs = pow(0.8, 15.0 - sky) * uDaylight;
     float bb = pow(0.8, 15.0 - blk);
     vec3 light = max(vec3(bs) * uSkyTint, vec3(bb) * vec3(1.0, 0.88, 0.7));
+    light = mix(light, sqrt(light), uBright * 0.6);
     light = max(light, vec3(0.035));
     if ((flags & 8u) != 0u) light = vec3(1.0);
     vLight = light * SHADE[n] * AOF[ao];

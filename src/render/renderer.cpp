@@ -10,6 +10,7 @@ extern "C" const char sh_chunk_vert[], sh_chunk_frag[], sh_generic_vert[], sh_ge
 extern "C" const char sh_sky_vert[], sh_sky_frag[], sh_ui_vert[], sh_ui_frag[];
 
 GLuint g_quadEBO = 0;
+float g_brightness = 0.5f;
 static const int MAX_QUADS = 98304;
 
 // ---------- camera ----------
@@ -214,6 +215,7 @@ void Renderer::drawWorld(World& w, const Camera& cam, const FrameEnv& env, int l
     chunkSh.set("uTime", env.time);
     chunkSh.set("uDaylight", env.daylight);
     chunkSh.set("uSkyTint", env.skyTint);
+    chunkSh.set("uBright", env.brightness);
     chunkSh.set("uFogColor", env.fogColor);
     chunkSh.set("uFogStart", env.fogStart);
     chunkSh.set("uFogEnd", env.fogEnd);

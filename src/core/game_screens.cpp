@@ -163,6 +163,10 @@ void Game::screenOptions() {
     snprintf(b, sizeof(b), "Sounds: %d%%", (int)(settings.sfxVolume * 100));
     if (ui.slider(x2, y, cw, 20, b, settings.sfxVolume, 0, 1)) audio::setVolumes(settings.masterVolume, settings.sfxVolume, settings.musicVolume);
     y += step;
+    snprintf(b, sizeof(b), "Brightness: %s", settings.brightness < 0.15f ? "Moody" : (settings.brightness > 0.85f ? "Bright" : std::to_string((int)(settings.brightness * 100)).append("%").c_str()));
+    ui.slider(x1, y, cw, 20, b, settings.brightness, 0, 1);
+    if (clickSound(ui.button(x2, y, cw, 20, std::string("Show FPS: ") + (showDebug ? "ON (F3)" : "OFF (F3)")))) showDebug = !showDebug;
+    y += step;
     if (clickSound(ui.button(x1, y, cw, 20, std::string("View Bobbing: ") + (settings.viewBobbing ? "ON" : "OFF")))) settings.viewBobbing = !settings.viewBobbing;
     static const char* gs[5] = {"Auto", "1", "2", "3", "4"};
     if (clickSound(ui.button(x2, y, cw, 20, std::string("GUI Scale: ") + gs[settings.guiScale]))) settings.guiScale = (settings.guiScale + 1) % 5;

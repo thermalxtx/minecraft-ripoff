@@ -177,7 +177,7 @@ void EntityManager::render(GeoBatch& b, const Camera& cam, float a) {
         int x = ifloor(p.x), y = ifloor(p.y), z = ifloor(p.z);
         float s = (float)world->getSkyLight(x, y, z), bl = (float)world->getBlockLight(x, y, z);
         float v = std::max(std::pow(0.8f, 15 - s) * dayFactor, std::pow(0.8f, 15 - bl));
-        return std::max(0.06f, v);
+        return std::max(0.06f, liftLight(v));
     };
     float maxD = world->renderDistance * 16.0f;
     for (auto& ep : list) {
