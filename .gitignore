@@ -2,4 +2,6 @@ build/
 *.o
 *.obj
 saves/
-dist/
+dist/*
+!dist/Blockcraft.zip
+Blockcraft.exe
