@@ -884,6 +884,7 @@ void generateFont(std::vector<uint8_t>& out, int& w, int& h, uint8_t glyphWidth[
     for (int c = 32; c < 127; c++) {
         const uint8_t* g = FONT57[c - 32];
         int gx = (c % 16) * 8, gy = (c / 16) * 8;
+        if (c == 'g' || c == 'j' || c == 'p' || c == 'q' || c == 'y') gy += 1;  // descenders hang below the baseline
         int maxCol = -1, minCol = 5;
         for (int r = 0; r < 7; r++)
             for (int col = 0; col < 5; col++)

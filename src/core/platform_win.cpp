@@ -30,8 +30,8 @@ HGLRC g_ctx = nullptr;
 HMODULE g_glLib = nullptr;
 int g_w = 1280, g_h = 720;
 bool g_quit = false, g_focused = true;
-bool g_keys[256], g_keysPrev[256];
-bool g_mouse[3], g_mousePrev[3];
+bool g_keys[256], g_keysPrev[256], g_keyEdge[256];
+bool g_mouse[3], g_mousePrev[3], g_mouseEdge[3], g_mouseUpEdge[3];
 float g_mx = 0, g_my = 0, g_dx = 0, g_dy = 0, g_scroll = 0;
 std::vector<unsigned> g_chars;
 bool g_captured = false, g_fullscreen = false;
@@ -67,6 +67,7 @@ LRESULT CALLBACK wndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         applyCapture(); return 0;
     case WM_KEYDOWN: case WM_SYSKEYDOWN:
         if (wp < 256) {
+            if (!(lp & (1 << 30)) || wp == VK_BACK) g_keyEdge[wp] = true;  // ignore auto-repeat (except backspace)
             g_keys[wp] = true;
             if (wp == VK_SHIFT) { g_keys[(lp & (1 << 24)) ? VK_RSHIFT : VK_LSHIFT] = true; }
             if (wp == VK_CONTROL) { g_keys[(lp & (1 << 24)) ? VK_RCONTROL : VK_LCONTROL] = true; }
@@ -83,12 +84,12 @@ LRESULT CALLBACK wndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_SYSCHAR: return 0;  // stop Alt beeps
     case WM_CHAR: if (wp >= 32 && wp != 127) g_chars.push_back((unsigned)wp); return 0;
     case WM_MOUSEMOVE: g_mx = (float)GET_X_LPARAM(lp); g_my = (float)GET_Y_LPARAM(lp); return 0;
-    case WM_LBUTTONDOWN: g_mouse[0] = true; SetCapture(h); return 0;
-    case WM_LBUTTONUP: g_mouse[0] = false; ReleaseCapture(); return 0;
-    case WM_RBUTTONDOWN: g_mouse[1] = true; return 0;
-    case WM_RBUTTONUP: g_mouse[1] = false; return 0;
-    case WM_MBUTTONDOWN: g_mouse[2] = true; return 0;
-    case WM_MBUTTONUP: g_mouse[2] = false; return 0;
+    case WM_LBUTTONDOWN: g_mouse[0] = true; g_mouseEdge[0] = true; SetCapture(h); return 0;
+    case WM_LBUTTONUP: g_mouse[0] = false; g_mouseUpEdge[0] = true; ReleaseCapture(); return 0;
+    case WM_RBUTTONDOWN: g_mouse[1] = true; g_mouseEdge[1] = true; return 0;
+    case WM_RBUTTONUP: g_mouse[1] = false; g_mouseUpEdge[1] = true; return 0;
+    case WM_MBUTTONDOWN: g_mouse[2] = true; g_mouseEdge[2] = true; return 0;
+    case WM_MBUTTONUP: g_mouse[2] = false; g_mouseUpEdge[2] = true; return 0;
     case WM_MOUSEWHEEL: g_scroll += (float)GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA; return 0;
     case WM_INPUT: {
         RAWINPUT ri; UINT sz = sizeof(ri);
@@ -171,6 +172,9 @@ void shutdown() {
 bool pollEvents() {
     memcpy(g_keysPrev, g_keys, sizeof(g_keys));
     memcpy(g_mousePrev, g_mouse, sizeof(g_mouse));
+    memset(g_keyEdge, 0, sizeof(g_keyEdge));
+    memset(g_mouseEdge, 0, sizeof(g_mouseEdge));
+    memset(g_mouseUpEdge, 0, sizeof(g_mouseUpEdge));
     g_dx = g_dy = 0; g_scroll = 0; g_chars.clear();
     MSG m;
     while (PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&m); DispatchMessageW(&m); }
@@ -187,10 +191,10 @@ int width() { return g_w; }
 int height() { return g_h; }
 bool focused() { return g_focused; }
 bool keyDown(int k) { return k >= 0 && k < 256 && g_keys[k]; }
-bool keyPressed(int k) { return k >= 0 && k < 256 && g_keys[k] && !g_keysPrev[k]; }
+bool keyPressed(int k) { return k >= 0 && k < 256 && g_keyEdge[k]; }
 bool mouseDown(int b) { return g_mouse[b]; }
-bool mousePressed(int b) { return g_mouse[b] && !g_mousePrev[b]; }
-bool mouseReleased(int b) { return !g_mouse[b] && g_mousePrev[b]; }
+bool mousePressed(int b) { return g_mouseEdge[b]; }
+bool mouseReleased(int b) { return g_mouseUpEdge[b] || (!g_mouse[b] && g_mousePrev[b]); }
 float mouseX() { return g_mx; }
 float mouseY() { return g_my; }
 void mouseDelta(float& dx, float& dy) { dx = g_dx; dy = g_dy; }
@@ -199,7 +203,10 @@ const std::vector<unsigned>& typedChars() { return g_chars; }
 void setMouseCaptured(bool c) {
     if (c == g_captured) return;
     g_captured = c;
-    if (!c) {  // put the cursor in the middle when releasing
+    {  // centre the cursor whenever capture changes
+        POINT p = {g_w / 2, g_h / 2}; ClientToScreen(g_hwnd, &p); SetCursorPos(p.x, p.y);
+    }
+    if (!c) {
         POINT p = {g_w / 2, g_h / 2}; ClientToScreen(g_hwnd, &p); SetCursorPos(p.x, p.y);
         g_mx = (float)(g_w / 2); g_my = (float)(g_h / 2);
     }
