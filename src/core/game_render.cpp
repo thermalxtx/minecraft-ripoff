@@ -154,9 +154,8 @@ void Game::renderHand(const FrameEnv& env) {
     GeoBatch b;
     FrameEnv e2 = env; e2.fogStart = 100; e2.fogEnd = 200;
     if (held.empty()) {
-        mat4 m = mat4::translate(vec3(0.42f, -0.42f, -0.55f) + bobOff + vec3(-swingSq * 0.2f, swingS * 0.12f, -swingS * 0.1f));
-        m = m * mat4::rotateY(-0.35f + swingSq * 0.3f) * mat4::rotateX(1.25f - swingS * 0.6f) * mat4::rotateZ(0.1f);
-        m = m * mat4::scale(vec3(0.9f, 0.9f, 0.9f));
+        mat4 m = mat4::translate(vec3(0.52f, -0.62f, -0.32f) + bobOff + vec3(-swingSq * 0.25f, swingS * 0.15f, -swingS * 0.25f));
+        m = m * mat4::rotateY(0.35f + swingSq * 0.35f) * mat4::rotateX(1.95f - swingS * 0.5f) * mat4::rotateZ(0.12f);
         drawPlayerArm(b, m, light);
     } else {
         const ItemDef& d = itemDef(held.id);

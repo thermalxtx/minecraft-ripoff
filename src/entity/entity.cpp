@@ -146,7 +146,7 @@ void EntityManager::tickArrow(Entity& e) {
     if (e.stuck) {
         if (e.age > 1200) e.removed = true;
         // the block it stuck in was removed
-        if (world->getBlock(ifloor(e.pos.x), ifloor(e.pos.y), ifloor(e.pos.z)) == AIR) { e.stuck = false; e.vel = vec3(0, -0.05f, 0); }
+        if (world->getBlock(e.stuckBlock.x, e.stuckBlock.y, e.stuckBlock.z) == AIR) { e.stuck = false; e.vel = vec3(0, -0.05f, 0); }
         if (e.fromPlayer && player && !player->dead && length(player->pos + vec3(0, 0.9f, 0) - e.pos) < 1.4f) {
             if (player->inv.add(ItemStack(ARROW, 1)) == 0) { e.removed = true; g_events.sound(e.pos, SFX_POP, 0.25f, 1.6f); }
         }
@@ -187,7 +187,7 @@ void EntityManager::tickArrow(Entity& e) {
     }
     if (bh.hit) {
         e.pos = start + dir * std::max(0.0f, bh.dist - 0.05f);
-        e.stuck = true; e.age = 0;
+        e.stuck = true; e.age = 0; e.stuckBlock = bh.block;
         e.vel = vec3(0, 0, 0);
         g_events.sound(e.pos, SFX_ARROW_HIT, 0.4f, 1.2f);
         return;

@@ -133,6 +133,17 @@ void Game::frame(float dt) {
             for (auto& k : kit) player.inv.add(k);
             player.say("Debug kit added");
         }
+        if (plat::keyPressed(KEY_F8) && player.flying) {  // debug: spawn one of every mob in a row in front
+            vec3 f = normalize(vec3(player.lookDir().x, 0, player.lookDir().z)), r = normalize(cross(f, vec3(0, 1, 0)));
+            const uint8_t types[8] = {ET_PIG, ET_COW, ET_SHEEP, ET_CHICKEN, ET_SHAMBLER, ET_MARROWSHOT, ET_FUSELING, ET_CRAGWEAVER};
+            for (int i = 0; i < 8; i++) {
+                vec3 p = player.pos + f * 5.0f + r * ((i - 3.5f) * 1.6f);
+                int top = world->surfaceHeight(ifloor(p.x), ifloor(p.z));
+                Entity* e = entities.spawn(types[i], vec3(p.x, (float)top, p.z));
+                e->yaw = e->prevYaw = e->headYaw = e->prevHeadYaw = player.yaw + PI;
+                e->aiTimer = 400; e->hostileToPlayer = false;
+            }
+        }
         // mouse look
         float dx, dy; plat::mouseDelta(dx, dy);
         if (!player.sleeping) {
@@ -296,14 +307,17 @@ void Game::processEvents() {
 // ---------------- world lifecycle ----------------
 ivec3 Game::findSpawn(uint64_t seed) {
     TerrainGen g(seed);
-    for (int r = 0; r < 64; r++)
-        for (int k = 0; k < std::max(1, r * 8); k++) {
-            float a = k / (float)std::max(1, r * 8) * 2 * PI;
-            int x = (int)(std::cos(a) * r * 16), z = (int)(std::sin(a) * r * 16);
-            ColumnInfo ci = g.column(x, z);
-            if (ci.biome != BIOME_OCEAN && ci.biome != BIOME_MOUNTAINS && ci.height >= SEA_LEVEL + 1 && ci.height < 110)
-                return ivec3(x, ci.height + 1, z);
-        }
+    // prefer open ground (plains, beach, desert, taiga) near the origin, then any land
+    for (int pass = 0; pass < 2; pass++)
+        for (int r = 0; r < 64; r++)
+            for (int k = 0; k < std::max(1, r * 8); k++) {
+                float a = k / (float)std::max(1, r * 8) * 2 * PI;
+                int x = (int)(std::cos(a) * r * 16), z = (int)(std::sin(a) * r * 16);
+                ColumnInfo ci = g.column(x, z);
+                bool open = ci.biome == BIOME_PLAINS || ci.biome == BIOME_BEACH || ci.biome == BIOME_DESERT;
+                if ((pass == 1 || open) && ci.biome != BIOME_OCEAN && ci.biome != BIOME_MOUNTAINS && ci.height >= SEA_LEVEL + 1 && ci.height < 110)
+                    return ivec3(x, ci.height + 1, z);
+            }
     return ivec3(0, 90, 0);
 }
 

@@ -415,16 +415,22 @@ void sapling(Img& im, int type) {
     }
 }
 void crack(Img& im, int stage) {
+    // thin branching cracks spreading from the centre; more and longer branches per stage
     im.fill(0, 0);
     Rng r(4242);
-    int lines = 2 + stage * 2;
-    for (int l = 0; l < lines; l++) {
-        float x = 8, y = 8, ang = r.range(0.f, 6.28f);
-        int len = 2 + stage / 2 + r.nextInt(3);
+    int branches = 2 + stage;
+    for (int b = 0; b < branches; b++) {
+        float x = 7.5f + r.range(-1.5f, 1.5f), y = 7.5f + r.range(-1.5f, 1.5f), ang = r.range(0.f, 6.28f);
+        int len = 3 + stage + r.nextInt(3);
         for (int k = 0; k < len; k++) {
-            im.set((int)x, (int)y, 0x000000, 170);
-            x += std::cos(ang) * 1.0f; y += std::sin(ang) * 1.0f; ang += r.range(-0.6f, 0.6f);
-            x = clampf(x, 0, 15); y = clampf(y, 0, 15);
+            im.set((int)x, (int)y, 0x101010, 150);
+            x += std::cos(ang); y += std::sin(ang);
+            ang += r.range(-0.5f, 0.5f);
+            if (x < 0 || y < 0 || x > 15 || y > 15) break;
+            if (r.chance(0.15f) && stage > 3) {  // small side twig
+                float tx = x, ty = y, ta = ang + (r.chance(0.5f) ? 1.2f : -1.2f);
+                for (int t = 0; t < 2; t++) { tx += std::cos(ta); ty += std::sin(ta); im.set((int)clampf(tx, 0, 15), (int)clampf(ty, 0, 15), 0x101010, 130); }
+            }
         }
     }
 }
@@ -726,7 +732,7 @@ void marrowSkin(Img& im, int part) {  // 0 bone 1 skull face 2 cloak
         im.rect(0, 0, 15, 2, 0x3a2050);
     }
 }
-void fuseSkin(Img& im, int part) {  // 0 body 1 face 2 cap side 3 cap top
+void fuseSkin(Img& im, int part) {  // 0 stem body 1 face 2 cap side 3 cap top
     if (part == 2 || part == 3) {
         furFill(im, 0xb02a1a, 3601, 0.1f);
         int spots = part == 3 ? 7 : 4;
@@ -734,14 +740,28 @@ void fuseSkin(Img& im, int part) {  // 0 body 1 face 2 cap side 3 cap top
             int x = 1 + hashCoords(i, 0, 0, 3602 + part) % 13, y = 1 + hashCoords(i, 1, 0, 3602 + part) % 13;
             im.rect(x, y, x + 1, y + 1, 0xf0eadc);
         }
-        if (part == 2) for (int x = 0; x < 16; x++) im.set(x, 15, 0x6a1a10);
+        if (part == 2) for (int x = 0; x < 16; x++) { im.set(x, 15, 0x6a1a10); if (x % 3 == 0) im.set(x, 14, 0xe8d8b8); }
+        if (part == 3) { im.rect(7, 7, 8, 8, 0x3a2a1a); im.set(7, 6, 0xffd040); im.set(8, 6, 0xff8a10); }  // the fuse sprout
         return;
     }
-    furFill(im, 0x6a8a3a, 3603, 0.14f);
-    for (int x = 1; x < 16; x += 4) for (int y = 0; y < 16; y++) if (prand(x, y, 3604) > 0.3f) im.set(x, y, 0x4a6a2a);
+    // pale mushroom stem with thin fibres
+    for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+        float v = prand(x, y / 4, 3603) * 0.5f + tnoise(x, y, 4, 3604) * 0.5f;
+        uint32_t c = rgbMul(0xd8c8a0, 0.86f + v * 0.2f);
+        if (x % 5 == 2 && prand(x, y, 3605) > 0.3f) c = rgbMul(c, 0.85f);
+        im.set(x, y, c);
+    }
     if (part == 1) {
-        im.rect(3, 3, 5, 6, 0x101808); im.rect(10, 3, 12, 6, 0x101808); im.set(4, 4, 0xe8ff80); im.set(11, 4, 0xe8ff80);
-        im.rect(5, 9, 10, 12, 0x101808); im.rect(6, 10, 9, 11, 0x3a1a10);
+        // round glowing eyes with dark rims, small round mouth, freckles
+        const int E[2] = {4, 11};
+        for (int ex : E) {
+            im.rect(ex - 1, 4, ex + 1, 7, 0x2a1a10);
+            im.set(ex - 1, 4, rgbMul(0xd8c8a0, 0.8f)); im.set(ex + 1, 4, rgbMul(0xd8c8a0, 0.8f));
+            im.set(ex - 1, 7, rgbMul(0xd8c8a0, 0.8f)); im.set(ex + 1, 7, rgbMul(0xd8c8a0, 0.8f));
+            im.rect(ex, 5, ex, 6, 0xffb020); im.set(ex, 5, 0xfff080);
+        }
+        im.rect(7, 10, 8, 11, 0x3a2010); im.set(7, 10, 0x5a3018);
+        im.set(2, 9, 0xc89878); im.set(13, 9, 0xc89878); im.set(3, 10, 0xc89878); im.set(12, 10, 0xc89878);
     }
 }
 void weaverSkin(Img& im, int part) {  // 0 body 1 face 2 leg
@@ -755,14 +775,21 @@ void weaverSkin(Img& im, int part) {  // 0 body 1 face 2 leg
     }
 }
 void playerSkin(Img& im, int part) {  // 0 skin 1 face 2 hair 3 shirt 4 pants
-    if (part == 2) { furFill(im, 0x3a2414, 3801, 0.1f); return; }
-    if (part == 3) { furFill(im, 0x2a8a8a, 3802, 0.08f); for (int x = 0; x < 16; x++) im.set(x, 15, 0x1a6a6a); return; }
-    if (part == 4) { furFill(im, 0x4a3a6a, 3803, 0.08f); return; }
-    furFill(im, 0xd8a078, 3804, 0.04f);
+    if (part == 2) { furFill(im, 0x8a3a1c, 3801, 0.12f); return; }
+    if (part == 3) {  // mustard work shirt with a dark belt line
+        furFill(im, 0xd8a030, 3802, 0.08f);
+        for (int x = 0; x < 16; x++) { im.set(x, 14, 0x5a3a1a); im.set(x, 15, 0x5a3a1a); }
+        for (int y = 0; y < 13; y += 3) im.set(7, y + 1, 0x8a6a20);
+        return;
+    }
+    if (part == 4) { furFill(im, 0x3a5a3a, 3803, 0.08f); for (int y = 0; y < 16; y++) im.set(8, y, 0x2a422a); return; }
+    furFill(im, 0xc8906a, 3804, 0.04f);
     if (part == 1) {
-        im.rect(0, 0, 15, 3, 0x3a2414); im.set(0, 4, 0x3a2414); im.set(15, 4, 0x3a2414);
-        im.rect(3, 7, 5, 8, 0xffffff); im.rect(10, 7, 12, 8, 0xffffff); im.rect(4, 7, 5, 8, 0x3a50a0); im.rect(10, 7, 11, 8, 0x3a50a0);
-        im.rect(6, 11, 9, 11, 0xa06050); im.rect(7, 10, 8, 10, 0xc88a68);
+        im.rect(0, 0, 15, 3, 0x8a3a1c); im.rect(0, 4, 1, 6, 0x8a3a1c); im.rect(14, 4, 15, 6, 0x8a3a1c); im.set(5, 4, 0x8a3a1c);
+        im.rect(3, 7, 5, 8, 0xffffff); im.rect(10, 7, 12, 8, 0xffffff); im.rect(4, 7, 5, 8, 0x2a7a4a); im.rect(10, 7, 11, 8, 0x2a7a4a);
+        im.rect(3, 6, 5, 6, 0x6a2a14); im.rect(10, 6, 12, 6, 0x6a2a14);
+        im.rect(5, 12, 10, 12, 0x8a4a3a); im.rect(7, 10, 8, 10, 0xb07858);
+        im.set(3, 10, 0xd08a70); im.set(12, 10, 0xd08a70);
     }
 }
 }  // namespace

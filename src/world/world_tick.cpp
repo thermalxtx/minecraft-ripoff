@@ -98,52 +98,54 @@ static bool flowable(uint16_t b) {
            b == OAK_SAPLING || b == BIRCH_SAPLING || b == SPRUCE_SAPLING;
 }
 
+// Simplified classic liquid model: meta = level 0 (source) .. 7, bit 3 = falling.
+// Flowing blocks recompute their level from their neighbours; liquid only spreads into empty space.
 void World::updateLiquid(int x, int y, int z) {
     uint16_t id = getBlock(x, y, z);
     if (!g_blocks[id].liquid) return;
     bool water = id == WATER;
     uint16_t other = water ? LAVA : WATER;
     int step = water ? 1 : 2;
+    int delay = water ? 5 : 30;
     uint8_t meta = getMeta(x, y, z);
     // lava touching water hardens
     if (!water) {
         bool touch = getBlock(x, y + 1, z) == WATER;
         for (auto& d : HDIRS) if (getBlock(x + d[0], y, z + d[1]) == WATER) touch = true;
         if (touch) {
-            setBlock(x, y, z, (meta & 7) == 0 && !(meta & 8) ? OBSIDIAN : COBBLESTONE);
+            setBlock(x, y, z, (meta & 15) == 0 ? OBSIDIAN : COBBLESTONE);
             g_events.sound(vec3(x + 0.5f, y + 0.5f, z + 0.5f), SFX_FIZZ, 0.8f);
             g_events.particles(vec3(x + 0.5f, y + 1.0f, z + 0.5f), PK_SMOKE, 8);
             return;
         }
     }
-    bool source = (meta & 15) == 0;
-    if (!source) {
-        int newMeta;
-        if (getBlock(x, y + 1, z) == id) newMeta = 8;
-        else {
-            int best = 99, sources = 0;
-            for (auto& d : HDIRS) {
-                uint16_t nb = getBlock(x + d[0], y, z + d[1]);
-                if (nb != id) continue;
-                uint8_t nm = getMeta(x + d[0], y, z + d[1]);
-                int nl = (nm & 8) ? 0 : (nm & 7);
-                if ((nm & 15) == 0) sources++;
-                best = std::min(best, nl);
-            }
-            newMeta = best == 99 ? 99 : best + step;
-            if (water && sources >= 2) {
-                uint16_t below = getBlock(x, y - 1, z);
-                if (g_blocks[below].solid || (below == WATER && (getMeta(x, y - 1, z) & 15) == 0)) newMeta = 0;
-            }
+    int level = (meta & 8) ? 8 : (meta & 7);  // 8 = falling
+    if (level != 0) {
+        int best = 100, sources = 0;
+        for (auto& d : HDIRS) {
+            if (getBlock(x + d[0], y, z + d[1]) != id) continue;
+            uint8_t nm = getMeta(x + d[0], y, z + d[1]);
+            int nl = (nm & 8) ? 0 : (nm & 7);
+            if ((nm & 15) == 0) sources++;
+            best = std::min(best, nl);
         }
-        if (newMeta > 7 && newMeta != 8) { setBlock(x, y, z, AIR); return; }
-        if (newMeta != meta) {
-            setBlock(x, y, z, id, (uint8_t)newMeta);
-            meta = (uint8_t)newMeta;
+        int want = best + step;
+        if (want >= 8 || best == 100) want = -1;
+        if (getBlock(x, y + 1, z) == id) want = 8;
+        if (water && sources >= 2) {
+            uint16_t below = getBlock(x, y - 1, z);
+            if (g_blocks[below].solid || (below == WATER && (getMeta(x, y - 1, z) & 15) == 0)) want = 0;
+        }
+        if (want != level) {
+            if (want < 0) { setBlock(x, y, z, AIR); return; }
+            setBlock(x, y, z, id, (uint8_t)want, false);
+            level = want;
+            scheduleUpdate(x, y, z, delay);
+            static const int D6[6][3] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+            for (auto& d : D6) if (getBlock(x + d[0], y + d[1], z + d[2]) == id) scheduleUpdate(x + d[0], y + d[1], z + d[2], delay);
         }
     }
-    // spread
-    int lvl = (meta & 8) ? 0 : (meta & 7);
+    // spread down, else sideways
     uint16_t below = y > 0 ? getBlock(x, y - 1, z) : BEDROCK;
     if (below == other) {
         if (water) { setBlock(x, y - 1, z, (getMeta(x, y - 1, z) & 15) == 0 ? OBSIDIAN : STONE); g_events.sound(vec3(x + 0.5f, y - 0.5f, z + 0.5f), SFX_FIZZ, 0.8f); }
@@ -154,8 +156,8 @@ void World::updateLiquid(int x, int y, int z) {
         setBlock(x, y - 1, z, id, 8);
         return;
     }
-    if (below == id && !source) return;  // resting on the same liquid: only sources spread sideways
-    int nl = lvl + step;
+    if (below == id && level != 0) return;  // flowing water resting on liquid does not spread sideways
+    int nl = (level >= 8) ? step : level + step;
     if (nl > 7) return;
     for (auto& d : HDIRS) {
         int nx = x + d[0], nz = z + d[1];
@@ -164,9 +166,6 @@ void World::updateLiquid(int x, int y, int z) {
         if (flowable(nb)) {
             if (nb != AIR) { GameEvent e{EV_BLOCK_BROKEN, vec3(nx + 0.5f, y + 0.5f, nz + 0.5f)}; e.a = nb; e.c = 0; g_events.post(e); }
             setBlock(nx, y, nz, id, (uint8_t)nl);
-        } else if (nb == id) {
-            uint8_t nm = getMeta(nx, y, nz);
-            if ((nm & 15) != 0 && !(nm & 8) && (nm & 7) > nl) setBlock(nx, y, nz, id, (uint8_t)nl);
         } else if (nb == other && water) {
             uint8_t om = getMeta(nx, y, nz);
             setBlock(nx, y, nz, (om & 15) == 0 ? OBSIDIAN : COBBLESTONE);

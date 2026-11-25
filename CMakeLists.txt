@@ -1,0 +1,16 @@
+# Optional CMake build (MSYS2 UCRT64: cmake -G "MinGW Makefiles" -B build && cmake --build build)
+cmake_minimum_required(VERSION 3.16)
+project(Blockcraft CXX RC)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/*/*.cpp)
+add_executable(Blockcraft WIN32 ${SOURCES} res/blockcraft.rc)
+# shaders are embedded with .incbin relative to the repo root
+target_compile_options(Blockcraft PRIVATE -Wall "-Wa,-I${CMAKE_SOURCE_DIR}")
+set_source_files_properties(src/render/shaders_embed.cpp PROPERTIES OBJECT_DEPENDS
+  "${CMAKE_SOURCE_DIR}/shaders/chunk.vert;${CMAKE_SOURCE_DIR}/shaders/chunk.frag;${CMAKE_SOURCE_DIR}/shaders/generic.vert;${CMAKE_SOURCE_DIR}/shaders/generic.frag;${CMAKE_SOURCE_DIR}/shaders/sky.vert;${CMAKE_SOURCE_DIR}/shaders/sky.frag;${CMAKE_SOURCE_DIR}/shaders/ui.vert;${CMAKE_SOURCE_DIR}/shaders/ui.frag")
+target_link_options(Blockcraft PRIVATE -static -static-libgcc -static-libstdc++)
+target_link_libraries(Blockcraft PRIVATE opengl32 gdi32 winmm z user32 ole32)

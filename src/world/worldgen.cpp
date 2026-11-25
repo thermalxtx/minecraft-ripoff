@@ -14,12 +14,12 @@ ColumnInfo TerrainGen::column(int x, int z) const {
     ColumnInfo ci;
     float fx = (float)x, fz = (float)z;
     // Step 1: height from continents, hills, detail and rare mountain ranges
-    float c = nCont.fbm2(fx / 700.f, fz / 700.f, 4) * 1.6f + 0.12f;
+    float c = nCont.fbm2(fx / 700.f, fz / 700.f, 4) * 1.6f + 0.2f;
     float h = c < 0 ? 63 + c * 60 : 63 + c * 22;
     float land = smoothstepf(-0.1f, 0.25f, c);
     h += nHill.fbm2(fx / 160.f, fz / 160.f, 4) * (4 + 16 * land);
     h += nDetail.fbm2(fx / 40.f, fz / 40.f, 3) * (1.5f + 2.5f * land);
-    float mm = smoothstepf(0.08f, 0.38f, nMountMask.fbm2(fx / 900.f, fz / 900.f, 3)) * smoothstepf(-0.02f, 0.2f, c);
+    float mm = smoothstepf(0.12f, 0.38f, nMountMask.fbm2(fx / 1100.f, fz / 1100.f, 3)) * smoothstepf(-0.02f, 0.2f, c);
     float peak = nMount.ridged2(fx / 230.f, fz / 230.f, 5);
     h += mm * std::pow(peak, 1.6f) * 105.f;
     ci.height = (int)clampf(h, 4, 245);
@@ -33,9 +33,9 @@ ColumnInfo TerrainGen::column(int x, int z) const {
     if (hh < SEA_LEVEL - 1) ci.biome = BIOME_OCEAN;
     else if (hh <= SEA_LEVEL + 2 && c < 0.08f + jit && t > -0.3f) ci.biome = BIOME_BEACH;
     else if (mm > 0.45f && hh > 92) ci.biome = BIOME_MOUNTAINS;
-    else if (t > 0.22f && u < 0.05f) ci.biome = BIOME_DESERT;
-    else if (t < -0.25f) ci.biome = BIOME_TAIGA;
-    else if (u > 0.08f) ci.biome = BIOME_FOREST;
+    else if (t > 0.18f && u < 0.12f) ci.biome = BIOME_DESERT;
+    else if (t < -0.32f) ci.biome = BIOME_TAIGA;
+    else if (u > 0.15f) ci.biome = BIOME_FOREST;
     else ci.biome = BIOME_PLAINS;
     return ci;
 }

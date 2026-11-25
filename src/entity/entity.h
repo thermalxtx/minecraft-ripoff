@@ -47,6 +47,7 @@ struct Entity {
     uint16_t blockId = 0;           // falling block
     bool fromPlayer = false;        // arrow fired by the player (can be picked up)
     bool stuck = false;             // arrow in a block
+    ivec3 stuckBlock;
     float damage = 2;
     uint32_t ownerId = 0;
     uint8_t extra = 0;              // sheep wool colour

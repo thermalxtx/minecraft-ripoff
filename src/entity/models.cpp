@@ -129,10 +129,10 @@ void drawMobModel(GeoBatch& b, const Entity& e, vec3 camPos, float a, float ligh
         if (e.fuse > 0 && std::sin(f * 40.0f) > 0) m.tint = rgba(1, 1, 1) | 0, m.light = std::min(1.6f, m.light + 0.8f);
         m.base = m.base * mat4::scale(vec3(swell, swell, swell));
         uint16_t legT[6]; allTex(legT, TX_FUSE_BODY);
-        for (int i = 0; i < 4; i++) {
-            float sx = (i & 1) ? 3 : -3, sz = (i & 2) ? 3 : -3;
-            m.part(vec3(sx - 1.5f, 0, sz - 1.5f), vec3(sx + 1.5f, 5, sz + 1.5f), legT, vec3(sx, 5, sz), (i == 0 || i == 3) ? swing : -swing);
-        }
+        // two stubby root feet; it waddles instead of walking
+        m.part(vec3(-4.5f, 0, -2.5f), vec3(-0.5f, 5, 2.5f), legT, vec3(-2.5f, 5, 0), swing * 0.8f);
+        m.part(vec3(0.5f, 0, -2.5f), vec3(4.5f, 5, 2.5f), legT, vec3(2.5f, 5, 0), -swing * 0.8f);
+        m.base = m.base * mat4::rotateZ(std::sin(e.limbSwing * 0.6662f) * 0.12f * limb);
         allTex(t, TX_FUSE_BODY); t[5] = TX_FUSE_FACE;
         m.part(vec3(-4, 4, -4), vec3(4, 19, 4), t, vec3(0, 4, 0), 0, head * 0.5f);
         uint16_t cap[6]; allTex(cap, TX_FUSE_CAP); cap[2] = TX_FUSE_CAP_TOP; cap[3] = TX_FUSE_BODY;
@@ -165,10 +165,11 @@ void drawMobModel(GeoBatch& b, const Entity& e, vec3 camPos, float a, float ligh
 
 void drawPlayerArm(GeoBatch& b, const mat4& m, float light) {
     uint16_t t[6];
+    // shoulder at the origin, fist at y = -12 (the arm points along -Y)
     for (auto& x : t) x = TX_PLAYER_SKIN;
-    b.box(m, vec3(-2, -10, -2) * P, vec3(2, 2, 2) * P, t, light);
+    b.box(m, vec3(-2, -12, -2) * P, vec3(2, 0, 2) * P, t, light);
     for (auto& x : t) x = TX_PLAYER_SHIRT;
-    b.box(m, vec3(-2.2f, -2, -2.2f) * P, vec3(2.2f, 2.2f, 2.2f) * P, t, light);
+    b.box(m, vec3(-2.25f, -4, -2.25f) * P, vec3(2.25f, 0.25f, 2.25f) * P, t, light);
 }
 
 void EntityManager::render(GeoBatch& b, const Camera& cam, float a) {
