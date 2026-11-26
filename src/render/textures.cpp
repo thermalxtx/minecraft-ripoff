@@ -200,13 +200,22 @@ void ore(Img& im, uint32_t c1, uint32_t c2, uint32_t c3, uint32_t seed, int clus
     }
 }
 void liquid(Img& im, int frame, bool lava) {
-    const uint32_t WP[] = {0x1f4fbf, 0x2558c8, 0x2c62d2, 0x3a74e0, 0x5a90f0};
     const uint32_t LP[] = {0xb3300a, 0xd04a0c, 0xe8700f, 0xf59a1c, 0xffd040};
+    const uint32_t WP[] = {0x2156c4, 0x265fcc, 0x2b67d2, 0x3373da, 0x4a88e6};
     for (int y = 0; y < 16; y++)
         for (int x = 0; x < 16; x++) {
-            float v = tnoise(floorMod(x + frame * 4, 16), floorMod(y + frame * 2, 16), 4, lava ? 301 : 201) * 0.6f
-                    + tnoise(floorMod(x - frame * 4, 16), y, 2, lava ? 303 : 203) * 0.4f;
-            im.set(x, y, pal(lava ? LP : WP, 5, v), lava ? 255 : 175);
+            if (lava) {
+                float v = tnoise(floorMod(x + frame * 4, 16), floorMod(y + frame * 2, 16), 4, 301) * 0.6f
+                        + tnoise(floorMod(x - frame * 4, 16), y, 2, 303) * 0.4f;
+                im.set(x, y, pal(LP, 5, v));
+                continue;
+            }
+            // tileable interference of a few waves: soft ripple lines instead of blotches
+            float ph = frame * 1.5708f;
+            float w = std::sin(2 * PI * (x * 1 + y * 2) / 16.0f + ph) * 0.35f + std::sin(2 * PI * (x * 3 - y * 1) / 16.0f - ph) * 0.3f +
+                      std::sin(2 * PI * (x * -2 + y * 3) / 16.0f + ph * 0.5f) * 0.2f;
+            float v = 0.5f + w * 0.45f + (prand(x, y, 205) - 0.5f) * 0.08f;
+            im.set(x, y, pal(WP, 5, v), 170);
         }
 }
 void torch(Img& im) {
@@ -675,33 +684,91 @@ void eyes(Img& im, int y, int x0, int x1, uint32_t white, uint32_t pupil) {
     im.rect(x0, y, x0 + 1, y + 1, white); im.rect(x1, y, x1 + 1, y + 1, white);
     im.set(x0 + 1, y + 1, pupil); im.set(x1, y + 1, pupil); im.set(x0 + 1, y, pupil); im.set(x1, y, pupil);
 }
+// Animal skins are mapped one texel per model pixel, so they are drawn as tiling hide patterns
+// with light from above (lighter top rows, darker belly rows). Faces are mapped onto the whole head front.
+void hide(Img& im, uint32_t base, uint32_t seed, float grain) {
+    for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+        float n = tnoise(x, y, 4, seed) * 0.6f + prand(x, y, seed + 1) * 0.4f;
+        float shade = 1.04f - y * 0.006f;
+        im.set(x, y, rgbMul(base, shade * (1 - grain + n * grain * 2)));
+    }
+}
+void eye2(Img& im, int x, int y, uint32_t white, uint32_t pupil, bool pupilRight) {
+    im.set(x, y, pupilRight ? white : pupil); im.set(x + 1, y, pupilRight ? pupil : white);
+    im.set(x, y + 1, pupilRight ? white : pupil); im.set(x + 1, y + 1, pupilRight ? pupil : white);
+}
 void pigSkin(Img& im, bool face) {
-    furFill(im, 0xe8a0a0, 3001, 0.08f);
+    hide(im, 0xeda7a2, 3001, 0.05f);
+    for (int i = 0; i < 5; i++) {  // a few faint darker freckles
+        int x = hashCoords(i, 0, 0, 3002) % 15, y = hashCoords(i, 1, 0, 3002) % 15;
+        im.set(x, y, 0xd98e8a); im.set(x + 1, y, 0xdd9590);
+    }
     if (face) {
-        eyes(im, 4, 2, 12, 0xffffff, 0x201010);
-        im.rect(4, 8, 11, 13, 0xf2b8b8); im.rect(5, 10, 6, 11, 0x9a5050); im.rect(9, 10, 10, 11, 0x9a5050);
-        for (int x = 4; x <= 11; x++) im.set(x, 13, 0xc88080);
+        hide(im, 0xf0aca6, 3003, 0.03f);
+        eye2(im, 3, 6, 0xf8f8f8, 0x1e1414, true); eye2(im, 11, 6, 0xf8f8f8, 0x1e1414, false);
+        for (int x = 3; x <= 5; x++) im.set(x, 5, 0xd88f8a);
+        for (int x = 10; x <= 12; x++) im.set(x, 5, 0xd88f8a);
+        for (int x = 0; x < 16; x++) im.set(x, 15, 0xd3918c);
     }
 }
 void cowSkin(Img& im, bool face) {
-    furFill(im, 0x5a3a22, 3101, 0.12f);
-    for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) if (tnoise(x, y, 2, 3103) > 0.6f) im.set(x, y, rgbMul(0xece6dc, 0.95f + prand(x, y, 3) * 0.08f));
+    hide(im, 0x6b4428, 3101, 0.07f);
+    // large white patches from low-frequency noise
+    for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+        float n = tnoise(x, y, 2, 3103) * 0.8f + tnoise(x, y, 4, 3104) * 0.2f;
+        if (n > 0.58f) im.set(x, y, rgbMul(0xf2ede4, 1.02f - y * 0.005f - prand(x, y, 3105) * 0.04f));
+        else if (n > 0.55f) im.set(x, y, 0xb8a898);
+    }
     if (face) {
-        eyes(im, 4, 2, 12, 0xffffff, 0x100808);
-        im.rect(3, 9, 12, 14, 0xd0b8a8); im.rect(5, 11, 6, 12, 0x5a3a30); im.rect(9, 11, 10, 12, 0x5a3a30);
+        hide(im, 0x5e3a22, 3106, 0.05f);
+        for (int y = 0; y < 11; y++) for (int x = 6; x <= 9; x++) if (!(y < 2 && (x == 6 || x == 9))) im.set(x, y, 0xf2ede4);  // white blaze
+        eye2(im, 1, 6, 0xe8e0d8, 0x140c08, true); eye2(im, 13, 6, 0xe8e0d8, 0x140c08, false);
+        im.set(1, 5, 0x3a2414); im.set(2, 5, 0x3a2414); im.set(13, 5, 0x3a2414); im.set(14, 5, 0x3a2414);
     }
 }
 void sheepSkin(Img& im, int part) {  // 0 wool 1 face 2 bare skin
-    if (part == 0) { furFill(im, 0xeeeae2, 3201, 0.1f); for (int i = 0; i < 20; i++) im.set(hashCoords(i, 0, 0, 3202) % 16, hashCoords(i, 1, 0, 3202) % 16, 0xd8d2c6); return; }
-    furFill(im, 0xc8b8a0, 3203, 0.06f);
-    if (part == 1) { eyes(im, 5, 2, 12, 0xffffff, 0x2a2010); im.rect(6, 10, 9, 11, 0xa89880); im.set(7, 12, 0x6a5a48); im.set(8, 12, 0x6a5a48); im.rect(0, 0, 15, 2, 0xeeeae2); }
+    if (part == 0) {
+        im.fill(0xe8e3d8);
+        // rows of little curls, offset every other row
+        for (int cy = 0; cy < 16; cy += 4)
+            for (int cx = 0; cx < 16; cx += 4) {
+                int ox = (cx + ((cy / 4) % 2) * 2) % 16;
+                im.set(ox, cy + 1, 0xd2cbbd); im.set((ox + 1) % 16, cy + 2, 0xd2cbbd); im.set((ox + 2) % 16, cy + 1, 0xd2cbbd);
+                im.set((ox + 1) % 16, cy, 0xfaf8f2); im.set((ox + 2) % 16, cy, 0xf6f3ec);
+                im.set((ox + 3) % 16, cy + 3, 0xdcd6c8);
+            }
+        return;
+    }
+    hide(im, 0xcdb898, 3203, 0.05f);
+    if (part == 1) {
+        for (int y = 0; y < 4; y++) for (int x = 0; x < 16; x++) if (y < 3 || prand(x, y, 3204) > 0.4f) im.set(x, y, (x + y) % 3 ? 0xe8e3d8 : 0xd2cbbd);  // wool fringe
+        for (int x = 3; x <= 5; x++) { im.set(x, 7, 0x2a2018); } im.set(4, 6, 0xf0ead8);
+        for (int x = 10; x <= 12; x++) { im.set(x, 7, 0x2a2018); } im.set(11, 6, 0xf0ead8);
+        im.rect(6, 11, 9, 11, 0x8a6e58); im.rect(7, 12, 8, 12, 0x5a4434); im.set(7, 13, 0x7a5e48); im.set(8, 13, 0x7a5e48);
+    }
 }
 void chickenSkin(Img& im, int part) {
-    if (part == 2) { im.fill(0xe8a020); for (int y = 0; y < 16; y++) im.set(7, y, 0xc08010); return; }
-    furFill(im, 0xf6f6f2, 3301, 0.05f);
+    if (part == 2) { im.fill(0xe8a020); for (int y = 0; y < 16; y++) { im.set(7, y, 0xc08010); im.set(0, y, 0xf0b840); } return; }
+    im.fill(0xf7f6f1);
+    // overlapping feather scallops
+    for (int y = 0; y < 16; y += 3)
+        for (int x = 0; x < 16; x += 4) {
+            int ox = (x + ((y / 3) % 2) * 2) % 16;
+            im.set(ox, y + 2 > 15 ? 15 : y + 2, 0xdedbd2); im.set((ox + 1) % 16, y + 2 > 15 ? 15 : y + 2, 0xe6e3da);
+            im.set((ox + 3) % 16, y + 1, 0xe9e6de);
+        }
     if (part == 1) {
-        eyes(im, 4, 2, 12, 0x101010, 0x101010);
-        im.rect(5, 7, 10, 9, 0xf0a020); im.rect(6, 10, 9, 12, 0xd02020);
+        im.rect(2, 5, 3, 6, 0x101010); im.set(2, 5, 0x404040);
+        im.rect(12, 5, 13, 6, 0x101010); im.set(13, 5, 0x404040);
+    }
+}
+void snoutTex(Img& im, int kind) {  // 0 pig snout, 1 cow muzzle, 2 beak, 3 wattle, 4 horn
+    switch (kind) {
+    case 0: hide(im, 0xf4b4ae, 3501, 0.03f); im.rect(3, 6, 5, 10, 0x8a4848); im.rect(10, 6, 12, 10, 0x8a4848); for (int x = 0; x < 16; x++) im.set(x, 0, 0xe39e98); break;
+    case 1: hide(im, 0xd8b098, 3502, 0.04f); im.rect(3, 6, 5, 9, 0x4a2c20); im.rect(10, 6, 12, 9, 0x4a2c20); for (int x = 2; x < 14; x++) im.set(x, 13, 0xb88c78); break;
+    case 2: hide(im, 0xf0a020, 3503, 0.05f); for (int x = 0; x < 16; x++) im.set(x, 8, 0xc07810); break;
+    case 3: hide(im, 0xd42a22, 3504, 0.06f); break;
+    default: hide(im, 0xe8dcc0, 3505, 0.04f); for (int y = 0; y < 16; y += 4) for (int x = 0; x < 16; x++) im.set(x, y, 0xc8b898); break;
     }
 }
 void shamblerSkin(Img& im, int part) {  // 0 skin 1 face 2 cloth 3 pants
@@ -860,6 +927,7 @@ void generateTextures(std::vector<uint8_t>& out) {
     T(TX_COW_SKIN, cowSkin(im, false)); T(TX_COW_FACE, cowSkin(im, true));
     T(TX_SHEEP_WOOL, sheepSkin(im, 0)); T(TX_SHEEP_FACE, sheepSkin(im, 1)); T(TX_SHEEP_SKIN, sheepSkin(im, 2));
     T(TX_CHICKEN_BODY, chickenSkin(im, 0)); T(TX_CHICKEN_FACE, chickenSkin(im, 1)); T(TX_CHICKEN_LEG, chickenSkin(im, 2));
+    for (int i = 0; i < 5; i++) T(TX_PIG_SNOUT + i, snoutTex(im, i));
     for (int i = 0; i < 4; i++) T(TX_SHAMBLER_SKIN + i, shamblerSkin(im, i));
     for (int i = 0; i < 3; i++) T(TX_MARROW_BONE + i, marrowSkin(im, i));
     for (int i = 0; i < 4; i++) T(TX_FUSE_BODY + i, fuseSkin(im, i));

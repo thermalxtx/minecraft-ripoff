@@ -7,6 +7,14 @@
 
 namespace {
 constexpr float P = 1.0f / 16.0f;  // one model pixel
+// Faces and snouts are painted for the whole face of their box; everything else is a hide pattern
+bool fullMapped(uint16_t t) {
+    switch (t) {
+        case TX_PIG_FACE: case TX_COW_FACE: case TX_SHEEP_FACE: case TX_CHICKEN_FACE: case TX_SHAMBLER_FACE: case TX_MARROW_FACE:
+        case TX_FUSE_FACE: case TX_WEAVER_FACE: case TX_PLAYER_FACE: case TX_PIG_SNOUT: case TX_COW_MUZZLE: return true;
+        default: return false;
+    }
+}
 struct Model {
     GeoBatch& b;
     mat4 base;
@@ -18,7 +26,16 @@ struct Model {
         if (rx != 0) m = m * mat4::rotateX(rx);
         if (rz != 0) m = m * mat4::rotateZ(rz);
         m = m * mat4::translate(-pivot * P);
-        b.box(m, mn * P, mx * P, tex, light, tint);
+        // one texel per model pixel so every part shares the same pixel size (the array texture repeats)
+        vec3 d = mx - mn;
+        const float fw[6] = {d.z, d.z, d.x, d.x, d.x, d.x}, fh[6] = {d.y, d.y, d.z, d.z, d.y, d.y};
+        float uv[24];
+        for (int f = 0; f < 6; f++) {
+            if (fullMapped(tex[f])) { uv[f * 4] = 0; uv[f * 4 + 1] = 0; uv[f * 4 + 2] = 1; uv[f * 4 + 3] = 1; continue; }
+            float u0 = std::fmod(std::fabs(mn.x * 0.37f + mn.z * 0.23f + f * 0.25f), 1.0f);
+            uv[f * 4] = u0; uv[f * 4 + 1] = 0; uv[f * 4 + 2] = u0 + fw[f] / 16.0f; uv[f * 4 + 3] = fh[f] / 16.0f;
+        }
+        b.box(m, mn * P, mx * P, tex, light, tint, true, uv);
     }
 };
 void allTex(uint16_t t[6], uint16_t v) { for (int i = 0; i < 6; i++) t[i] = v; }
@@ -43,48 +60,91 @@ void drawMobModel(GeoBatch& b, const Entity& e, vec3 camPos, float a, float ligh
         bool cow = e.type == ET_COW, sheep = e.type == ET_SHEEP;
         uint16_t skin = cow ? TX_COW_SKIN : (sheep ? TX_SHEEP_WOOL : TX_PIG_SKIN);
         uint16_t face = cow ? TX_COW_FACE : (sheep ? TX_SHEEP_FACE : TX_PIG_FACE);
-        float legH = cow ? 10 : (sheep ? 9 : 6), bodyH = cow ? 10 : 8;
+        float legH = cow ? 10 : (sheep ? 8 : 6), bodyH = cow ? 10 : (sheep ? 9 : 8);
         float bw = cow ? 6 : 5, bl = cow ? 9 : 8;
         uint32_t woolTint = 0xFFFFFFFF;
-        if (sheep) { static const uint32_t wt[4] = {0xFFFFFFFF, rgba(0.5f, 0.5f, 0.5f), rgba(0.2f, 0.2f, 0.22f), rgba(0.5f, 0.35f, 0.22f)}; woolTint = wt[e.extra & 3]; }
+        if (sheep) { static const uint32_t wt[4] = {0xFFFFFFFF, rgba(0.55f, 0.55f, 0.55f), rgba(0.22f, 0.22f, 0.24f), rgba(0.55f, 0.38f, 0.24f)}; woolTint = wt[e.extra & 3]; }
         allTex(t, skin);
         uint32_t keep = m.tint;
         if (sheep) m.tint = (tint == 0xFFFFFFFF) ? woolTint : tint;
         m.part(vec3(-bw, legH, -bl), vec3(bw, legH + bodyH, bl), t);
         m.tint = keep;
         uint16_t legT[6]; allTex(legT, sheep ? TX_SHEEP_SKIN : skin);
-        float lx = bw - 2.5f, lz = bl - 2.5f;
+        float lx = bw - 2.5f, lz = bl - 2.5f, lw = cow ? 2.0f : 1.75f;
         for (int i = 0; i < 4; i++) {
             float sx = (i & 1) ? lx : -lx, sz = (i & 2) ? lz : -lz;
             float ang = ((i == 0 || i == 3) ? swing : -swing);
-            m.part(vec3(sx - 2, 0, sz - 2), vec3(sx + 2, legH, sz + 2), legT, vec3(sx, legH, sz), ang);
+            if (sheep) {  // woolly upper legs
+                m.tint = (tint == 0xFFFFFFFF) ? woolTint : tint;
+                uint16_t wl[6]; allTex(wl, TX_SHEEP_WOOL);
+                m.part(vec3(sx - 2, legH - 3, sz - 2), vec3(sx + 2, legH + 0.5f, sz + 2), wl, vec3(sx, legH, sz), ang);
+                m.tint = keep;
+            }
+            m.part(vec3(sx - lw, 0, sz - lw), vec3(sx + lw, legH, sz + lw), legT, vec3(sx, legH, sz), ang);
         }
-        allTex(t, sheep ? TX_SHEEP_SKIN : skin); t[5] = face;
-        float hy = legH + bodyH - (cow ? 4 : 2);
-        float hs = cow ? 4 : (sheep ? 3 : 4);
-        vec3 hp(0, hy, -bl);
-        m.part(vec3(-hs, hy - hs, -bl - hs * 1.6f), vec3(hs, hy + hs, -bl + 1), t, hp, 0, head);
-        if (cow) {
-            uint16_t ht[6]; allTex(ht, TX_WOOL_WHITE);
-            m.part(vec3(-hs - 1, hy + hs - 1, -bl - 4), vec3(-hs, hy + hs + 2, -bl - 3), ht, hp, 0, head);
-            m.part(vec3(hs, hy + hs - 1, -bl - 4), vec3(hs + 1, hy + hs + 2, -bl - 3), ht, hp, 0, head);
-        }
+        // head (with a 3D snout / muzzle)
+        uint16_t headSkin = sheep ? TX_SHEEP_SKIN : (cow ? TX_COW_FACE : TX_PIG_SKIN);
+        allTex(t, headSkin);
+        if (cow) allTex(t, TX_COW_SKIN);
+        t[5] = face;
+        float hy = cow ? legH + bodyH - 1 : (sheep ? legH + bodyH + 1 : legH + bodyH - 1);
+        float hw = cow ? 4 : (sheep ? 3 : 4), hh = cow ? 4 : (sheep ? 3.5f : 4), hd = cow ? 6 : (sheep ? 7 : 7);
+        vec3 hp(0, hy - hh, -bl);
+        float nod = sheep && e.ai == AI_IDLE ? std::max(0.0f, std::sin((e.age + a) * 0.05f)) * 0.5f : 0;  // sheep graze
+        m.part(vec3(-hw, hy - hh * 2, -bl - hd), vec3(hw, hy, -bl + 1), t, hp, nod, head);
         if (e.type == ET_PIG) {
-            uint16_t sn[6]; allTex(sn, TX_PIG_SKIN); sn[5] = TX_PIG_FACE;
+            uint16_t sn[6]; allTex(sn, TX_PIG_SKIN); sn[5] = TX_PIG_SNOUT;
+            m.part(vec3(-2.5f, hy - 6.5f, -bl - hd - 1.5f), vec3(2.5f, hy - 3.5f, -bl - hd), sn, hp, nod, head);
+        } else if (cow) {
+            uint16_t mz[6]; allTex(mz, TX_COW_MUZZLE); mz[5] = TX_COW_MUZZLE;
+            m.part(vec3(-3, hy - 8, -bl - hd - 1.5f), vec3(3, hy - 4.5f, -bl - hd), mz, hp, 0, head);
+            uint16_t ht[6]; allTex(ht, TX_HORN);
+            m.part(vec3(-hw - 2, hy - 1.5f, -bl - hd + 2), vec3(-hw, hy - 0.5f, -bl - hd + 3), ht, hp, 0, head);
+            m.part(vec3(-hw - 2, hy - 0.5f, -bl - hd + 2), vec3(-hw - 1, hy + 1.5f, -bl - hd + 3), ht, hp, 0, head);
+            m.part(vec3(hw, hy - 1.5f, -bl - hd + 2), vec3(hw + 2, hy - 0.5f, -bl - hd + 3), ht, hp, 0, head);
+            m.part(vec3(hw + 1, hy - 0.5f, -bl - hd + 2), vec3(hw + 2, hy + 1.5f, -bl - hd + 3), ht, hp, 0, head);
+            // ears
+            uint16_t et[6]; allTex(et, TX_COW_SKIN);
+            m.part(vec3(-hw - 2, hy - 3, -bl - hd + 3), vec3(-hw, hy - 2, -bl - hd + 4), et, hp, 0, head);
+            m.part(vec3(hw, hy - 3, -bl - hd + 3), vec3(hw + 2, hy - 2, -bl - hd + 4), et, hp, 0, head);
+        } else {
+            // woolly cap and ears
+            m.tint = (tint == 0xFFFFFFFF) ? woolTint : tint;
+            uint16_t wc[6]; allTex(wc, TX_SHEEP_WOOL);
+            m.part(vec3(-hw - 0.5f, hy - 1.5f, -bl - hd + 1), vec3(hw + 0.5f, hy + 0.5f, -bl + 1), wc, hp, nod, head);
+            m.tint = keep;
+            uint16_t et[6]; allTex(et, TX_SHEEP_SKIN);
+            m.part(vec3(-hw - 2, hy - 3, -bl - hd + 3), vec3(-hw, hy - 2, -bl - hd + 5), et, hp, nod, head);
+            m.part(vec3(hw, hy - 3, -bl - hd + 3), vec3(hw + 2, hy - 2, -bl - hd + 5), et, hp, nod, head);
         }
+        // a little tail
+        uint16_t tt[6]; allTex(tt, sheep ? TX_SHEEP_WOOL : skin);
+        if (sheep) m.tint = (tint == 0xFFFFFFFF) ? woolTint : tint;
+        m.part(vec3(-1, legH + bodyH - 4, bl), vec3(1, legH + bodyH - 1, bl + 1.5f), tt);
+        m.tint = keep;
         break;
     }
     case ET_CHICKEN: {
         uint16_t leg[6]; allTex(leg, TX_CHICKEN_LEG);
         m.part(vec3(-2, 0, -0.5f), vec3(-1, 5, 0.5f), leg, vec3(-1.5f, 5, 0), swing);
         m.part(vec3(1, 0, -0.5f), vec3(2, 5, 0.5f), leg, vec3(1.5f, 5, 0), -swing);
+        m.part(vec3(-2.5f, 0, -2), vec3(-0.5f, 0.5f, 0.5f), leg, vec3(-1.5f, 5, 0), swing);
+        m.part(vec3(0.5f, 0, -2), vec3(2.5f, 0.5f, 0.5f), leg, vec3(1.5f, 5, 0), -swing);
         allTex(t, TX_CHICKEN_BODY);
         m.part(vec3(-3, 4, -4), vec3(3, 10, 4), t);
+        m.part(vec3(-2, 7, 4), vec3(2, 11, 5.5f), t);  // tail feathers
         float flap = e.onGround ? 0 : std::sin((e.age + a) * 1.5f) * 0.8f;
         m.part(vec3(-4, 5, -3), vec3(-3, 9, 3), t, vec3(-3, 9, 0), 0, 0, -flap);
         m.part(vec3(3, 5, -3), vec3(4, 9, 3), t, vec3(3, 9, 0), 0, 0, flap);
         t[5] = TX_CHICKEN_FACE;
-        m.part(vec3(-2, 9, -6), vec3(2, 15, -2), t, vec3(0, 9, -3), 0, head);
+        vec3 hp(0, 9, -3);
+        float peck = e.ai == AI_IDLE ? std::max(0.0f, std::sin((e.age + a) * 0.15f)) * 0.6f : 0;
+        m.part(vec3(-2, 9, -6), vec3(2, 15, -3), t, hp, peck, head);
+        uint16_t bk[6]; allTex(bk, TX_CHICKEN_BEAK);
+        m.part(vec3(-1.5f, 11, -8), vec3(1.5f, 12.5f, -6), bk, hp, peck, head);
+        uint16_t wt[6]; allTex(wt, TX_CHICKEN_WATTLE);
+        m.part(vec3(-0.75f, 9, -7), vec3(0.75f, 11, -6), wt, hp, peck, head);
+        m.part(vec3(-0.5f, 15, -5), vec3(0.5f, 16.5f, -3.5f), wt, hp, peck, head);  // comb
         break;
     }
     case ET_SHAMBLER: {

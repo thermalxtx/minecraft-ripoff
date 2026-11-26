@@ -11,6 +11,8 @@ uniform float uBright;     // 0 = moody, 1 = bright (gamma lift)
 out vec3 vUV;
 out vec3 vLight;
 out float vFogDist;
+out vec3 vWorld;
+flat out uint vWater;
 const float SHADE[7] = float[7](0.62, 0.62, 1.0, 0.5, 0.82, 0.82, 0.92);
 const float AOF[4] = float[4](0.42, 0.62, 0.8, 1.0);
 void main() {
@@ -30,7 +32,8 @@ void main() {
         wp.z += cos(world.z * 0.7 + world.x * 0.3 + uTime * 1.5) * 0.05;
     }
     if ((flags & 2u) != 0u) wp.y += (sin(world.x * 1.3 + uTime * 1.6) + cos(world.z * 1.1 + uTime * 1.3)) * 0.035 - 0.07;
-    if ((flags & 4u) != 0u) layer += uint(mod(uTime * 5.0, 4.0));
+    vWater = (flags & 2u) != 0u ? 1u : 0u;
+    if ((flags & 4u) != 0u && vWater == 0u) layer += uint(mod(uTime * 5.0, 4.0));
     gl_Position = uViewProj * vec4(wp, 1.0);
     float bs = pow(0.8, 15.0 - sky) * uDaylight;
     float bb = pow(0.8, 15.0 - blk);
@@ -41,4 +44,5 @@ void main() {
     vLight = light * SHADE[n] * AOF[ao];
     vUV = vec3(uv, float(layer));
     vFogDist = length(wp);
+    vWorld = world;
 }

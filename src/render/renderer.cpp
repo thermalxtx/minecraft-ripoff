@@ -105,8 +105,8 @@ bool Renderer::init() {
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 16, 16, TX_COUNT, 0, GL_RGBA, GL_UNSIGNED_BYTE, texPixels.data());
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_LEVEL, 4);
     glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
 
@@ -221,6 +221,7 @@ void Renderer::drawWorld(World& w, const Camera& cam, const FrameEnv& env, int l
     chunkSh.set("uFogEnd", env.fogEnd);
     chunkSh.set("uAlphaTest", layer == LAYER_WATER ? 0.01f : 0.5f);
     chunkSh.set("uAlphaMul", 1.0f);
+    chunkSh.set("uTime", env.time);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, texArray);
     glEnable(GL_DEPTH_TEST);
